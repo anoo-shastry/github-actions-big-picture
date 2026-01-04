@@ -1,5 +1,13 @@
 name: build-test-deploy
-on: push
+on:
+  push:
+    branches: ["main"]
+
+# Granting permissions at the top level or specifically in the deploy job
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -7,12 +15,22 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
       - name: Use node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-      - run: npm install
+          cache: 'npm' # This caches your node_modules for faster subsequent runs
+
+      - run: npm ci # 'npm ci' is faster and more reliable than 'install' in CI environments
       - run: npm run build
+
+      # Save the build output so other jobs can use it
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: ./out # Or '.next' depending on your Next.js config
 
   test:
     needs: build
@@ -20,19 +38,18 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
       - name: Use node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-      - run: npm install
+          cache: 'npm'
+
+      - run: npm ci
       - run: npm test
 
   deploy:
     needs: test
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
     environment:
       name: production
       url: ${{ steps.deployment.outputs.page_url }}
@@ -40,22 +57,22 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # Instead of rebuilding, we download the files from the 'build' job
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Use node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
+          name: build-output
+          path: ./out
+
       - name: Configure Github pages
         uses: actions/configure-pages@v4
-        with:
-          static_site_generator: next
-      - run: npm install
-      - run: npm run build
-      - name: Upload Artifacts
+
+      - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './out'
-      - name: deploy
+
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
