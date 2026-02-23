@@ -1,46 +1,56 @@
 name: build-test-deploy
-on:
+on: # trigger the workflow on push event to the 'main' branch
   push:
-    branches: ["main"]
+    branches: ['main']
 
+# global permissions to the repository
 permissions:
   contents: read
   pages: write
   id-token: write
 
 jobs:
-  # Job 1: Build - Starts immediately
+  # Job 1: build - Starts immediately
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run build
-      - name: Upload Build Artifact
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build Artifact
+        run: npm run build
+      - name: Upload the Artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-output
           path: ./out
 
-  # Job 2: Test - Also starts immediately (removed 'needs: build')
+  # Job 2: Test - Also starts immediately
+  # basic unit test
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+      - name: Setup NodeJs
+        uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci
-      - run: npm test
+      - name: Install Dependencies
+        run: npm ci
+      - name: Run Unit Tests
+        run: npm test
 
-  # Job 3: Deploy - Waits for BOTH Build and Test
+  # Job 3: Deploy - Waits for BOTH 'build' and 'test'
   deploy:
-    needs: [build, test] # This creates the "fan-in" effect
+    needs: [build, test] # this job is executed only if 'build' and 'test' jobs are successful
     environment:
       name: production
       url: ${{ steps.deployment.outputs.page_url }}
@@ -52,8 +62,10 @@ jobs:
         with:
           name: build-output
           path: ./out
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Configure GH Pages
+        uses: actions/configure-pages@v4
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: './out'
       - name: Deploy to GitHub Pages
