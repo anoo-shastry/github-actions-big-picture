@@ -1,9 +1,10 @@
-name: hello-world
-on: push
+name: hello-world # name of this workflow
+on: push # trigger the pipeline on a push event
 jobs:
   hello-world-job:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository Code
+      - name: Checkout Repository Code # name of this step
         uses: actions/checkout@v4
-      - run: echo "$(cat hello_world.txt)"
+      - name: Print File Content
+        run: echo "$(cat hello_world.txt)"
